@@ -2,6 +2,7 @@ mod api;
 mod book;
 mod config;
 mod links;
+mod log;
 #[macro_use(c)]
 extern crate cute;
 #[macro_use]
@@ -9,12 +10,13 @@ extern crate prettytable;
 
 use clap::{App, Arg, SubCommand};
 
-use crate::api::{Promptable, client_from_env};
-use simplicate::traits::Post;
+use crate::api::{client_from_env, Promptable};
 use book::Loggable;
+use colored::*;
 use config::UserConfig;
 use links::Link;
-use colored::*;
+use log::HoursLog;
+use simplicate::traits::Post;
 
 fn main() {
     let links_options = Link::get_options();
@@ -111,7 +113,17 @@ fn main() {
             let postable = loggable.to_hourpost(user.unwrap().employee_id.to_owned());
             let cli = client_from_env();
             postable.post(cli);
-            println!("{}", "Succesfully posted hours to simplicate!".to_string().bold().green());
+            println!(
+                "{}",
+                "Succesfully posted hours to simplicate!"
+                    .to_string()
+                    .bold()
+                    .green()
+            );
+        }
+        ("log", Some(_)) => {
+            let log = HoursLog::retrieve_current_week(user.unwrap().employee_id.to_owned());
+            log.print();
         }
         ("config", Some(_)) => UserConfig::set_from_cli(),
         _ => panic!("Unknown Command"),
