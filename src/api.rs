@@ -1,11 +1,11 @@
-use simplicate::hours::HourType;
-use simplicate::projects::{Project, Service};
+use crate::links::Link;
+use colored::*;
 use dialoguer::{theme::ColorfulTheme, Input};
 use prettytable::Table;
-use std::env;
+use simplicate::hours::HourType;
+use simplicate::projects::{Project, Service};
 use simplicate::SimplicateClient as Client;
-use colored::*;
-use crate::links::Link;
+use std::env;
 
 pub fn client_from_env() -> Client {
     Client {
@@ -87,16 +87,26 @@ impl Promptable for Projects {
 impl Promptable for Services {
     fn print_table(&self) {
         let mut table = Table::new();
-        table.add_row(row!["Index", "Name", "ID"]);
+        table.add_row(row!["Index", "Name", "ID", "Start Date", "End Date"]);
         for (index, service) in self.iter().enumerate() {
             let name = match &service.name {
                 Some(x) => x.blue(),
                 None => "Name Unknown".to_string().red(),
             };
+            let start_date = match &service.start_date {
+                Some(x) => x.cyan().italic().to_string(),
+                None => "Unknown".italic().bright_red().to_string(),
+            };
+            let end_date = match &service.end_date {
+                Some(x) => x.red().italic().to_string(),
+                None => "Unknown".italic().bright_red().to_string(),
+            };
             table.add_row(row![
                 format!("{}", index.to_string().yellow().bold()),
                 format!("{}", name),
-                format!("{}", service.id.magenta().italic())
+                format!("{}", service.id.magenta().italic()),
+                start_date,
+                end_date
             ]);
         }
         table.printstd();
