@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
-use crate::api::{Projects, Services, Links, Hourtypes, Promptable, client_from_env};
+use crate::api::{client_from_env, Hourtypes, Links, Projects, Promptable, Services};
 use dialoguer::{theme::ColorfulTheme, Input};
-use std::fs;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 
 use toml::to_string as to_toml;
 
@@ -15,20 +15,22 @@ pub struct Link {
     pub description: String,
 }
 
-
 impl Link {
     pub fn new(project_status_filter: Option<String>) {
         let cli = client_from_env();
-        let projects: Projects = match project_status_filter {
+        let mut projects: Projects = match project_status_filter {
             Some(filtr) => cli.get_projects_by_status(filtr),
-            None => cli.get_projects()
+            None => cli.get_projects(),
         };
+        projects.sort_by(|b, a| b.name.cmp(&a.name));
         let project_index = projects.index_prompt();
         let project = &projects[project_index];
-        let services: Services = cli.get_services_by_project(&project.id);
+        let mut services: Services = cli.get_services_by_project(&project.id);
+        services.sort_by(|b, a| b.name.cmp(&a.name));
         let service_index = services.index_prompt();
         let service = &services[service_index];
-        let hourtypes: Hourtypes = cli.get_hourtypes();
+        let mut hourtypes: Hourtypes = cli.get_hourtypes();
+        hourtypes.sort_by(|b, a| b.label.cmp(&a.label));
         let hourtype_index = hourtypes.index_prompt();
         let hourtype = &hourtypes[hourtype_index];
         let alias: String = Input::with_theme(&ColorfulTheme::default())
