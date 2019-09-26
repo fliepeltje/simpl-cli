@@ -9,6 +9,7 @@ pub struct UserConfig {
     pub api_secret: String,
     pub employee_id: String,
     pub simplicate_host: String,
+    pub project_status_filter: Option<String>,
 }
 
 impl UserConfig {
@@ -34,6 +35,7 @@ impl UserConfig {
                 .default(env::var("SIMPL_HOST").unwrap_or(String::from("")))
                 .interact()
                 .unwrap(),
+            project_status_filter: None
         };
         config.store();
     }
@@ -49,6 +51,10 @@ impl UserConfig {
                 env::set_var("SIMPL_API_SECRET", &config.api_secret);
                 env::set_var("SIMPL_HOST", &config.simplicate_host);
                 env::set_var("SIMPL_EMPLOYEE_ID", &config.employee_id);
+                match &config.project_status_filter {
+                    Some(x) => env::set_var("SIMPL_PROJECT_STATUS_FILTER", x),
+                    None => ()
+                };
                 Some(config)
             }
             Err(_) => None,

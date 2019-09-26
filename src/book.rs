@@ -1,11 +1,10 @@
 use crate::links::Link;
-use chrono::{NaiveDateTime, TimeZone, Local};
+use chrono::{Local, NaiveDateTime, TimeZone};
 use chrono_tz::Europe::Amsterdam;
 use colored::*;
 use git2::Repository;
 use serde::{Deserialize, Serialize};
 use simplicate::hours::HourPost;
-use simplicate::generic::CustomField;
 use std::fmt;
 
 #[derive(Serialize, Deserialize)]
@@ -60,14 +59,6 @@ impl CommitData {
             _ => None,
         }
     }
-
-    pub fn to_customfield(&self) -> CustomField {
-        CustomField {
-            name: "related_commit".to_string(),
-            value: self.id.to_owned(),
-            label: Some(self.project.to_owned())
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -79,7 +70,12 @@ pub struct Loggable {
 }
 
 impl Loggable {
-    pub fn new(time: String, project_alias: String, add_commit: bool, tags: Vec<String>) -> Loggable {
+    pub fn new(
+        time: String,
+        project_alias: String,
+        add_commit: bool,
+        tags: Vec<String>,
+    ) -> Loggable {
         let commit_data = match add_commit {
             true => CommitData::latest(),
             false => None,
@@ -97,7 +93,7 @@ impl Loggable {
     pub fn to_hourpost(&self, employee_id: String) -> HourPost {
         let start = match &self.commit {
             Some(commit) => commit.authored_on.to_owned(),
-            None => Local::now().to_string()
+            None => Local::now().to_string(),
         };
         let note = self.tags.join(" | ");
         let postable = HourPost {
@@ -108,7 +104,7 @@ impl Loggable {
             hours: self.time.to_owned(),
             start_date: start,
             note: note,
-            custom_fields: None
+            custom_fields: None,
         };
         postable
     }

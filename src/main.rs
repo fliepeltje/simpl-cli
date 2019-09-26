@@ -47,6 +47,7 @@ fn main() {
                 ),
         )
         .subcommand(SubCommand::with_name("config").about("Configure credentials"))
+        .subcommand(SubCommand::with_name("log").about("Show booked hours"))
         .subcommand(
             SubCommand::with_name("book")
                 .about("Log hours")
@@ -83,7 +84,7 @@ fn main() {
     match matches.subcommand() {
         ("links", Some(cmd)) => match cmd.subcommand() {
             ("add", _) => {
-                Link::new();
+                Link::new(user.unwrap().project_status_filter);
                 Link::get_links().print_table();
             }
             ("show", _) => {

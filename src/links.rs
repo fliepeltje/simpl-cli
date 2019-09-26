@@ -17,9 +17,12 @@ pub struct Link {
 
 
 impl Link {
-    pub fn new() {
+    pub fn new(project_status_filter: Option<String>) {
         let cli = client_from_env();
-        let projects: Projects = cli.get_projects();
+        let projects: Projects = match project_status_filter {
+            Some(filtr) => cli.get_projects_by_status(filtr),
+            None => cli.get_projects()
+        };
         let project_index = projects.index_prompt();
         let project = &projects[project_index];
         let services: Services = cli.get_services_by_project(&project.id);
