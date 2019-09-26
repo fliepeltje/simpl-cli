@@ -87,7 +87,14 @@ impl Promptable for Projects {
 impl Promptable for Services {
     fn print_table(&self) {
         let mut table = Table::new();
-        table.add_row(row!["Index", "Name", "ID", "Start Date", "End Date"]);
+        table.add_row(row![
+            "Index",
+            "Name",
+            "ID",
+            "Start Date",
+            "End Date",
+            "Status"
+        ]);
         for (index, service) in self.iter().enumerate() {
             let name = match &service.name {
                 Some(x) => x.blue(),
@@ -101,12 +108,17 @@ impl Promptable for Services {
                 Some(x) => x.red().italic().to_string(),
                 None => "Unknown".italic().bright_red().to_string(),
             };
+            let status = match &service.status {
+                Some(x) => x.blue().italic().bold().to_string(),
+                None => "Unknown".italic().bright_red().to_string(),
+            };
             table.add_row(row![
                 format!("{}", index.to_string().yellow().bold()),
                 format!("{}", name),
                 format!("{}", service.id.magenta().italic()),
                 start_date,
-                end_date
+                end_date,
+                status
             ]);
         }
         table.printstd();
