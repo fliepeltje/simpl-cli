@@ -50,7 +50,7 @@ impl Link {
     pub fn get_links_map() -> HashMap<String, Link> {
         let linksfile = dirs::home_dir()
             .expect("Can't find homedir on this fs")
-            .join("./simpl/links.toml");
+            .join(".simpl/links.toml");
         let links: HashMap<String, Link> = match fs::read_to_string(&linksfile) {
             Ok(string) => toml::from_str(&string.to_string().to_owned()).unwrap(),
             Err(_) => HashMap::new(),
@@ -82,7 +82,7 @@ impl Link {
         let toml_string = to_toml(&links).expect("Couldnt parse links");
         let linksfile = dirs::home_dir()
             .expect("Can't find homedir on this fs")
-            .join("./simpl/links.toml");
+            .join(".simpl/links.toml");
         fs::write(linksfile, toml_string).expect("Failed to write config");
     }
 
@@ -92,7 +92,7 @@ impl Link {
         let toml_string = to_toml(&links).expect("Couldnt parse links");
         let linksfile = dirs::home_dir()
             .expect("Can't find homedir on this fs")
-            .join("./simpl/links.toml");
+            .join(".simpl/links.toml");
         fs::write(linksfile, toml_string).expect("Failed to write config");
     }
 

@@ -41,7 +41,7 @@ impl UserConfig {
     pub fn fetch() -> Option<UserConfig> {
         let simplconf = dirs::home_dir()
             .expect("Can't find homedir on this fs")
-            .join("./simpl/config.toml");
+            .join(".simpl/config.toml");
         match fs::read_to_string(simplconf) {
             Ok(string) => {
                 let config: UserConfig = toml::from_str(&string.to_string().to_owned()).unwrap();
@@ -57,9 +57,9 @@ impl UserConfig {
 
     pub fn store(self) {
         let homedir = dirs::home_dir().expect("Can't find homedir on this fs");
-        let simpldir = homedir.join("./simpl");
+        let simpldir = homedir.join(".simpl");
         fs::create_dir_all(simpldir).expect("Failed to create simpl dir");
-        let simplconf = homedir.join("./simpl/config.toml");
+        let simplconf = homedir.join(".simpl/config.toml");
         let toml_string = to_toml(&self).expect("Could not encode TOML value");
         println!("config:\n{}", toml_string);
         fs::write(simplconf, toml_string).expect("Failed to write config");
