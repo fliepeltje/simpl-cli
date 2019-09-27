@@ -6,6 +6,7 @@ use simplicate::hours::Hours;
 pub struct LoggedHour {
     pub description: String,
     pub time: f64,
+    pub updated_at: Option<String>,
 }
 
 pub struct HoursLog {
@@ -18,7 +19,7 @@ impl HoursLog {
         let y = &current_dt.iso_week().year();
         let w = &current_dt.iso_week().week();
         let start_date = NaiveDate::from_isoywd(*y, *w, Weekday::Mon);
-        let end_date = NaiveDate::from_isoywd(*y, *w, Weekday::Fri);
+        let end_date = NaiveDate::from_isoywd(*y, *w, Weekday::Sat);
         let cli = client_from_env();
         HoursLog {
             hours: cli.get_employee_hours_for_daterange(
@@ -36,10 +37,15 @@ impl HoursLog {
         for h in hours {
             let lh = LoggedHour {
                 description: match h.project {
-                    Some(proj) => proj.name.unwrap_or("Unnamed project".to_string()),
-                    None => "Unknown project".to_string()
+                    Some(proj) => {
+                        let name = proj.name.unwrap_or("Unnamed project".to_string());
+                        let note = h.note.unwrap_or("".to_string());
+                        format!("{}: {}", name, note)
+                    }
+                    None => "Unknown project".to_string(),
                 },
-                time: h.hours
+                time: h.hours,
+                updated_at: h.created_at,
             };
             match &h.start_date {
                 Some(x) => {
@@ -49,10 +55,15 @@ impl HoursLog {
                         header = h;
                         println!("{}", header);
                     };
-                },
-                None => ()
+                }
+                None => (),
             };
-            println!("    {}: {}", lh.description, lh.time);
+            println!(
+                "    {}\t\t{}\t{}",
+                lh.updated_at.unwrap_or("".to_string()),
+                lh.time,
+                lh.description,
+            );
         }
     }
 }
