@@ -91,10 +91,6 @@ impl Loggable {
     }
 
     pub fn to_hourpost(&self, employee_id: String) -> HourPost {
-        let start = match &self.commit {
-            Some(commit) => commit.authored_on.to_owned(),
-            None => Local::now().to_string(),
-        };
         let note = self.tags.join(" | ");
         let postable = HourPost {
             employee_id: employee_id,
@@ -102,7 +98,7 @@ impl Loggable {
             projectservice_id: self.link.service_id.to_owned(),
             type_id: self.link.hours_id.to_owned(),
             hours: self.time.to_owned(),
-            start_date: start,
+            start_date: Local::now().to_string(),
             note: note,
             custom_fields: None,
         };
