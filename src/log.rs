@@ -35,14 +35,24 @@ impl HoursLog {
         let mut hours = self.hours;
         hours.sort_by(|a, b| a.start_date.cmp(&b.start_date));
         let mut header = "unknown".to_string();
+        let mut total: f64 = 0.0;
         for h in hours {
             match &h.start_date {
                 Some(x) => {
                     let h = x.split(" ").next().unwrap_or("unknown");
                     let h = h.to_string();
                     if h != header {
+                        if total > 0.0 {
+                            println!("    -----------------------");
+                            println!(
+                                "    {}\t\t{}\n",
+                                String::from("Total").bold().magenta(),
+                                total.to_string().bold().green(),
+                            );
+                        }
                         header = h;
-                        println!("{}", header.bold().green());
+                        total = 0.0;
+                        println!("{}\n", header.bold().green());
                     };
                 }
                 None => (),
@@ -52,7 +62,10 @@ impl HoursLog {
                     Some(proj) => {
                         let name = proj.name.unwrap_or("Unnamed project".to_string());
                         let note = h.note.unwrap_or("".to_string());
-                        format!("{}: {}", name.bright_red(), note.yellow())
+                        match note == String::from("") {
+                            false => format!("{}: {}", name.bright_red(), note.yellow()),
+                            true => format!("{}", name.bright_red()),
+                        }
                     }
                     None => "Unknown project".to_string(),
                 },
@@ -69,10 +82,11 @@ impl HoursLog {
                     _ => "unknown".to_string(),
                 },
             };
+            total += lh.time;
             println!(
                 "    {}\t\t{}\t{}",
                 lh.updated_at.italic().magenta(),
-                lh.time.to_string().bold().blue(),
+                lh.time.to_string().bold().italic().green(),
                 lh.description,
             );
         }
