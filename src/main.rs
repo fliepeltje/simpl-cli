@@ -49,7 +49,16 @@ fn main() {
                 ),
         )
         .subcommand(SubCommand::with_name("config").about("Configure credentials"))
-        .subcommand(SubCommand::with_name("log").about("Show booked hours"))
+        .subcommand(
+            SubCommand::with_name("show")
+                .about("Show booked hours")
+                .arg(
+                    Arg::with_name("latest")
+                        .short("l")
+                        .help("Show the latest booked hours")
+                        .takes_value(false),
+                ),
+        )
         .subcommand(
             SubCommand::with_name("book")
                 .about("Log hours")
@@ -65,13 +74,6 @@ fn main() {
                         .index(2)
                         .help("Time in hours")
                         .required(true),
-                )
-                .arg(
-                    Arg::with_name("commit")
-                        .short("c")
-                        .long("commit")
-                        .help("Adds latest commit from current repo")
-                        .takes_value(false),
                 )
                 .arg(
                     Arg::with_name("tags")
@@ -121,10 +123,12 @@ fn main() {
                     .green()
             );
         }
-        ("log", Some(_)) => {
-            let log = HoursLog::retrieve_current_week(user.unwrap().employee_id.to_owned());
-            log.print();
-        }
+        ("show", Some(cmd)) => match cmd.is_present("latest") {
+            false => {
+                HoursLog::show_current_week(user.unwrap().employee_id.to_owned());
+            }
+            true => HoursLog::show_latest(user.unwrap().employee_id.to_owned()),
+        },
         ("config", Some(_)) => UserConfig::set_from_cli(),
         _ => panic!("Unknown Command"),
     }
