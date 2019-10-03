@@ -108,7 +108,7 @@ fn main() {
                 cmd.value_of("project").unwrap().to_owned(),
                 cmd.is_present("commit"),
                 match cmd.values_of("tags") {
-                    Some(vals) => c![x.to_string().to_owned(), for x in vals],
+                    Some(vals) => c![format!("[{}]", x).to_string().to_owned(), for x in vals],
                     _ => Vec::new(),
                 },
             );

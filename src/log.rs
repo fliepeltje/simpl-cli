@@ -1,4 +1,4 @@
-use crate::api::client_from_env;
+use crate::api::{client_from_env, get_latest_logged_hours};
 use chrono::{Datelike, Local, NaiveDate, Weekday};
 use colored::*;
 use simplicate::hours::Hours;
@@ -33,16 +33,13 @@ impl HoursLog {
     }
 
     pub fn show_latest(employee_id: String) {
-        let current_dt: NaiveDate = Local::today().naive_local();
-        let dt_string = current_dt.to_string();
-        let cli = client_from_env();
-        let hours = cli.get_latest_employee_hours_for_date(employee_id, dt_string.clone());
+        let hours = get_latest_logged_hours(employee_id);
         match hours {
             Some(h) => {
                 let log = HoursLog { hours: vec![h] };
                 log.print()
             }
-            None => println!("No latest hours for {}", dt_string),
+            None => println!("No latest hours for today"),
         };
     }
 
