@@ -39,20 +39,13 @@ pub type Services = Vec<Service>;
 impl Promptable for Links {
     fn print_table(&self) {
         let mut table = Table::new();
-        table.add_row(row![
-            "Alias",
-            "Description",
-            "Project ID",
-            "Service ID",
-            "HourType ID"
-        ]);
+        table.add_row(row!["Alias", "Description", "Project ID", "Service ID",]);
         for link in self {
             table.add_row(row![
                 link.alias.to_string().bold().green(),
                 link.description.to_string(),
                 link.project_id.to_string().italic().blue(),
                 link.service_id.to_string().italic().yellow(),
-                link.hours_id.to_string().italic().magenta()
             ]);
         }
         table.printstd();
