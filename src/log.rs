@@ -15,20 +15,35 @@ pub struct HoursLog {
 }
 
 impl HoursLog {
-    pub fn retrieve_current_week(employee_id: String) -> HoursLog {
+    pub fn show_current_week(employee_id: String) {
         let current_dt: NaiveDate = Local::today().naive_local();
         let y = &current_dt.iso_week().year();
         let w = &current_dt.iso_week().week();
         let start_date = NaiveDate::from_isoywd(*y, *w, Weekday::Mon);
         let end_date = NaiveDate::from_isoywd(*y, *w, Weekday::Sat);
         let cli = client_from_env();
-        HoursLog {
+        let log = HoursLog {
             hours: cli.get_employee_hours_for_daterange(
                 employee_id,
                 Some(start_date.to_string()),
                 Some(end_date.to_string()),
             ),
-        }
+        };
+        log.print();
+    }
+
+    pub fn show_latest(employee_id: String) {
+        let current_dt: NaiveDate = Local::today().naive_local();
+        let dt_string = current_dt.to_string();
+        let cli = client_from_env();
+        let hours = cli.get_latest_employee_hours_for_date(employee_id, dt_string.clone());
+        match hours {
+            Some(h) => {
+                let log = HoursLog { hours: vec![h] };
+                log.print()
+            }
+            None => println!("No latest hours for {}", dt_string),
+        };
     }
 
     pub fn print(self) {
