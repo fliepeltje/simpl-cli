@@ -1,8 +1,9 @@
 use crate::links::Link;
+use chrono::{Local, NaiveDate};
 use colored::*;
 use dialoguer::{theme::ColorfulTheme, Input};
 use prettytable::Table;
-use simplicate::hours::HourType;
+use simplicate::hours::{HourType, Hours};
 use simplicate::projects::{Project, Service};
 use simplicate::SimplicateClient as Client;
 use std::env;
@@ -131,4 +132,11 @@ impl Promptable for Hourtypes {
         }
         table.printstd();
     }
+}
+
+pub fn get_latest_logged_hours(employee_id: String) -> Option<Hours> {
+    let current_dt: NaiveDate = Local::today().naive_local();
+    let dt_string = current_dt.to_string();
+    let cli = client_from_env();
+    cli.get_latest_employee_hours_for_date(employee_id, dt_string.clone())
 }

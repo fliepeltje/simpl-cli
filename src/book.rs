@@ -1,3 +1,4 @@
+use crate::api::get_latest_logged_hours;
 use crate::links::Link;
 use chrono::{Local, NaiveDateTime, TimeZone};
 use chrono_tz::Europe::Amsterdam;
@@ -5,7 +6,7 @@ use colored::*;
 use git2::Repository;
 use serde::{Deserialize, Serialize};
 use simplicate::hours::HourPost;
-use std::fmt;
+use std::{env, fmt};
 
 #[derive(Serialize, Deserialize)]
 pub struct CommitData {
@@ -81,9 +82,37 @@ impl Loggable {
             false => None,
         };
         let link = Link::get_by_alias(project_alias).expect("No link with specified alias");
+        let t: f64 = match time.as_ref() {
+            "fill" => {
+                let latest_h =
+                    get_latest_logged_hours(env::var("SIMPL_EMPLOYEE_ID").unwrap().to_string());
+                match latest_h {
+                    Some(h) => {
+                        let dt = NaiveDateTime::parse_from_str(
+                            &h.start_date.unwrap(),
+                            "%Y-%m-%d %H:%M:%S",
+                        )
+                        .expect("Invalid hours");
+                        let current_dt: NaiveDateTime = Local::now().naive_local();
+                        let diff = current_dt - dt;
+                        let minutes = diff.num_minutes();
+                        let h: f64 = (minutes / 60) as f64;
+                        let m: f64 = match minutes {
+                            x if x <= 15 => 0.25,
+                            x if x <= 30 => 0.5,
+                            x if x <= 45 => 0.75,
+                            _ => 1.0,
+                        };
+                        h + m
+                    }
+                    None => panic!("No latest hours found for this day"),
+                }
+            }
+            x => x.parse::<f64>().expect("Hours must be of type float"),
+        };
         let loggable = Loggable {
             link: link,
-            time: time.parse().expect("Time specified is not a float"),
+            time: t,
             tags: tags,
             commit: commit_data,
         };
