@@ -47,23 +47,24 @@ impl HoursLog {
         let mut hours = self.hours;
         hours.sort_by(|a, b| a.start_date.cmp(&b.start_date));
         let mut header = "unknown".to_string();
-        let mut total: f64 = 0.0;
+        let mut total: Vec<f64> = vec![];
         for h in hours {
             match &h.start_date {
                 Some(x) => {
                     let h = x.split(" ").next().unwrap_or("unknown");
                     let h = h.to_string();
                     if h != header {
-                        if total > 0.0 {
+                        if total.len() > 1 {
                             println!("    -----------------------");
+                            let h_total: f64 = total.iter().sum();
                             println!(
                                 "    {}\t\t{}\n",
                                 String::from("Total").bold().magenta(),
-                                total.to_string().bold().green(),
+                                h_total.to_string().bold().green(),
                             );
                         }
                         header = h;
-                        total = 0.0;
+                        total = vec![];
                         println!("{}\n", header.bold().green());
                     };
                 }
@@ -94,7 +95,7 @@ impl HoursLog {
                     _ => "unknown".to_string(),
                 },
             };
-            total += lh.time;
+            total.push(lh.time);
             println!(
                 "    {}\t\t{}\t{}",
                 lh.updated_at.italic().magenta(),
@@ -102,5 +103,14 @@ impl HoursLog {
                 lh.description,
             );
         }
+        if total.len() > 1 {
+            println!("    -----------------------");
+            let h_total: f64 = total.iter().sum();
+            println!(
+                "    {}\t\t{}\n",
+                String::from("Total").bold().magenta(),
+                h_total.to_string().bold().green(),
+            );
+        };
     }
 }
