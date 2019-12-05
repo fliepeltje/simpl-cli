@@ -1,70 +1,290 @@
-use crate::api::{client_from_env, Hourtypes, Links, Projects, Promptable, Services};
+use crate::config::{init_config_env, init_simplicate_client};
+use colored::*;
 use dialoguer::{theme::ColorfulTheme, Input};
+use prettytable::{Row, Table};
 use serde::{Deserialize, Serialize};
+use simplicate::structures::{HourType, Project, Service};
+use simplicate::QueryMany;
 use std::collections::HashMap;
 use std::fs;
+use structopt::StructOpt;
+use toml;
 
-use toml::to_string as to_toml;
+trait Promptable<T: QueryMany<T>> {
+    const PROMPT_TEXT: &'static str;
+    fn format_row(item: &T, index: usize) -> Row;
+    fn format_headers() -> Row;
+
+    fn extra_params() -> Option<Vec<(String, String)>> {
+        None
+    }
+
+    fn sort(items: Vec<T>) -> Vec<T> {
+        items
+    }
+
+    fn filter(items: Vec<T>) -> Vec<T> {
+        items
+    }
+
+    fn retrieve(offset: Option<u32>) -> Vec<T> {
+        let offset = match offset {
+            Some(x) => x,
+            None => 0,
+        };
+        let mut params = vec![
+            ("limit".to_string(), "100".to_string()),
+            ("offset".to_string(), offset.to_string()),
+        ];
+        match Self::extra_params() {
+            Some(p) => {
+                params.extend(p);
+            }
+            None => (),
+        };
+        let items = T::fetch_many(init_simplicate_client(), Some(params));
+        match items {
+            Some(mut list) => {
+                if list.len() == 100 {
+                    let new_offset = offset + 100;
+                    let next = Self::retrieve(Some(new_offset));
+                    list.extend(next);
+                    list
+                } else {
+                    list
+                }
+            }
+            None => panic!("fail"),
+        }
+    }
+
+    fn print_options(items: &Vec<T>) {
+        let mut table = Table::new();
+        table.add_row(Self::format_headers());
+        for (index, item) in items.iter().enumerate() {
+            table.add_row(Self::format_row(item, index));
+        }
+        table.printstd();
+    }
+
+    fn prompt() -> T {
+        let items = Self::retrieve(None);
+        let items = Self::sort(items);
+        let items = Self::filter(items);
+        Self::print_options(&items);
+        let selection: usize = Input::with_theme(&ColorfulTheme::default())
+            .with_prompt(Self::PROMPT_TEXT)
+            .interact()
+            .unwrap();
+        items.into_iter().nth(selection).expect("Invalid Selection")
+    }
+}
+
+impl Promptable<Project> for Link {
+    const PROMPT_TEXT: &'static str = "Select project index";
+
+    fn sort(mut items: Vec<Project>) -> Vec<Project> {
+        items.sort_by_key(|x| {
+            (
+                match &x.project_status {
+                    Some(x) => x.label.to_string(),
+                    None => "Unknown".to_string(),
+                },
+                x.name.to_string(),
+            )
+        });
+        items
+    }
+
+    fn format_headers() -> Row {
+        row![
+            "Index".bold().yellow(),
+            "Project Name".bold().yellow(),
+            "Start Date".bold().yellow(),
+            "End Date".bold().yellow(),
+            "Status".bold().yellow()
+        ]
+    }
+
+    fn format_row(item: &Project, index: usize) -> Row {
+        let status = match &item.project_status {
+            Some(status) => &status.label,
+            None => "Unknown",
+        };
+        let active = status == "tab_pactive";
+        let start_date = match &item.start_date {
+            Some(date) => date.to_string(),
+            None => "Unknown".to_string(),
+        };
+        let end_date = match &item.end_date {
+            Some(date) => date.to_string(),
+            None => "Unknown".to_string(),
+        };
+        match active {
+            true => row![
+                index.to_string().bold(),
+                item.name.green(),
+                start_date.green().italic(),
+                end_date.green().italic(),
+                status.green().italic()
+            ],
+            false => row![
+                index.to_string().bold(),
+                item.name.red(),
+                start_date.red().italic(),
+                end_date.red().italic(),
+                status.red().italic()
+            ],
+        }
+    }
+}
+
+impl Promptable<Service> for Link {
+    const PROMPT_TEXT: &'static str = "Select service index";
+
+    fn sort(mut items: Vec<Service>) -> Vec<Service> {
+        items.sort_by_key(|x| (x.name.as_ref().unwrap_or(&"".to_string()).to_owned()));
+        items
+    }
+
+    fn format_headers() -> Row {
+        row![
+            "Index".bold().yellow(),
+            "Service Name".bold().yellow(),
+            "Start Date".bold().yellow(),
+            "End Date".bold().yellow(),
+            "Status".bold().yellow()
+        ]
+    }
+
+    fn extra_params() -> Option<Vec<(String, String)>> {
+        let project_id = std::env::var("PROJECT_ID").expect("No project ID set");
+        Some(vec![("q[project_id]".to_string(), project_id.to_string())])
+    }
+
+    fn format_row(item: &Service, index: usize) -> Row {
+        let status = match &item.status {
+            Some(status) => &status,
+            None => "Unknown",
+        };
+        let active = status == "open";
+        let start_date = match &item.start_date {
+            Some(datetime) => datetime.to_string(),
+            None => "Unknown".to_string(),
+        };
+        let end_date = match &item.end_date {
+            Some(datetime) => datetime.to_string(),
+            None => "Unknown".to_string(),
+        };
+        let name = match &item.name {
+            Some(name) => name,
+            None => "Unknown",
+        };
+        match active {
+            true => row![
+                index.to_string().bold(),
+                name.green(),
+                start_date.green().italic(),
+                end_date.green().italic(),
+                status.green().italic()
+            ],
+            false => row![
+                index.to_string().bold(),
+                name.red(),
+                start_date.red().italic(),
+                end_date.red().italic(),
+                status.red().italic()
+            ],
+        }
+    }
+}
+
+impl Promptable<HourType> for Link {
+    const PROMPT_TEXT: &'static str = "Select Hourtype index";
+
+    fn sort(mut items: Vec<HourType>) -> Vec<HourType> {
+        items.sort_by_key(|x| (x.label.to_string()));
+        items
+    }
+
+    fn format_headers() -> Row {
+        row!["Index".bold().yellow(), "Name".bold().yellow(),]
+    }
+
+    fn format_row(item: &HourType, index: usize) -> Row {
+        row![index.to_string().bold(), item.label.green()]
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Link {
     pub alias: String,
-    pub project_id: String,
-    pub service_id: String,
-    pub hours_id: String,
+    pub project: String,
+    pub service: String,
+    pub hourtype: String,
     pub description: String,
 }
 
 impl Link {
-    pub fn new(project_status_filter: Option<String>) {
-        let cli = client_from_env();
-        let mut projects: Projects = match project_status_filter {
-            Some(filtr) => cli.get_projects_by_status(filtr),
-            None => cli.get_projects(),
-        };
-        projects.sort_by(|b, a| b.name.cmp(&a.name));
-        let project_index = projects.index_prompt();
-        let project = &projects[project_index];
-        let mut services: Services = cli.get_services_by_project(&project.id);
-        services.sort_by(|b, a| b.name.cmp(&a.name));
-        let service_index = services.index_prompt();
-        let service = &services[service_index];
-        let mut hourtypes: Hourtypes = cli.get_hourtypes();
-        hourtypes.sort_by(|b, a| b.label.cmp(&a.label));
-        let hourtype_index = hourtypes.index_prompt();
-        let hourtype = &hourtypes[hourtype_index];
-        let alias: String = Input::with_theme(&ColorfulTheme::default())
-            .with_prompt("Enter alias")
-            .interact()
-            .unwrap();
-        let service_name = match &service.name {
-            Some(x) => x.to_string(),
-            None => "default service".to_string(),
-        };
-        let link = Link {
-            alias: alias,
-            project_id: project.id.to_string(),
-            service_id: service.id.to_string(),
-            hours_id: hourtype.id.to_string(),
-            description: format!("{} for {}: {}", hourtype.label, project.name, service_name)
-                .to_string(),
-        };
-        link.store();
-    }
-
-    pub fn get_links_map() -> HashMap<String, Link> {
+    fn save(self) {
+        let mut links = Link::get_mapping();
+        links.insert(self.alias.to_string(), self);
+        let toml_string = toml::to_string(&links).expect("Couldnt parse links");
         let linksfile = dirs::home_dir()
             .expect("Can't find homedir on this fs")
             .join(".simpl/links.toml");
-        let links: HashMap<String, Link> = match fs::read_to_string(&linksfile) {
-            Ok(string) => toml::from_str(&string.to_string().to_owned()).unwrap(),
-            Err(_) => HashMap::new(),
-        };
-        links
+        fs::write(linksfile, toml_string).expect("Failed to write config");
     }
 
-    pub fn get_links() -> Links {
-        let link_map = Link::get_links_map();
+    fn remove(alias: String) {
+        let mut links = Link::get_mapping();
+        links.remove(&alias);
+        let toml_string = toml::to_string(&links).expect("Couldnt parse links");
+        let linksfile = dirs::home_dir()
+            .expect("Can't find homedir on this fs")
+            .join(".simpl/links.toml");
+        fs::write(linksfile, toml_string).expect("Failed to write config");
+    }
+
+    fn from_prompt() -> Link {
+        let project: Project = Self::prompt();
+        std::env::set_var("PROJECT_ID", &project.id);
+        let service: Service = Self::prompt();
+        let hourtype: HourType = Self::prompt();
+        let description = format!(
+            "{} for {} - {}",
+            &hourtype.label,
+            &project.name,
+            &service.name.unwrap_or("Unnamed Service".to_string())
+        );
+        Link {
+            project: project.id,
+            service: service.id,
+            hourtype: hourtype.id,
+            alias: Input::with_theme(&ColorfulTheme::default())
+                .with_prompt("Enter an alias")
+                .interact()
+                .unwrap(),
+            description,
+        }
+    }
+
+    pub fn from_alias(alias: String) -> Link {
+        let links = Self::get_mapping();
+        match links.get(&alias) {
+            Some(x) => Link {
+                alias: x.alias.to_string(),
+                project: x.project.to_string(),
+                service: x.service.to_string(),
+                hourtype: x.hourtype.to_string(),
+                description: x.description.to_string(),
+            },
+            None => panic!("No link for alias"),
+        }
+    }
+
+    fn get_links() -> Links {
+        let link_map = Self::get_mapping();
         let mut links = vec![];
         for (_, link) in link_map.iter() {
             links.push(link.clone());
@@ -72,46 +292,97 @@ impl Link {
         links
     }
 
-    pub fn get_options() -> Vec<String> {
-        let links = Link::get_links_map();
-        let mut options = vec![];
-        for k in links.keys() {
-            options.push(k.to_string())
+    fn get_mapping() -> HashMap<String, Link> {
+        let linksfile = dirs::home_dir()
+            .expect("Can't find home directory on this filesystem")
+            .join(".simpl/links.toml");
+        let links: HashMap<String, Link> = match fs::read_to_string(&linksfile) {
+            Ok(string) => toml::from_str(&string.to_string().to_owned()).unwrap(),
+            Err(_) => HashMap::new(),
+        };
+        links
+    }
+}
+
+type Links = Vec<Link>;
+
+trait TableDisplay<T> {
+    fn format_row(item: &T, index: usize) -> Row;
+    fn format_headers() -> Row;
+
+    fn sort(items: Vec<T>) -> Vec<T> {
+        items
+    }
+
+    fn filter(items: Vec<T>) -> Vec<T> {
+        items
+    }
+
+    fn print_table(items: &Vec<T>) {
+        let mut table = Table::new();
+        table.add_row(Self::format_headers());
+        for (index, item) in items.iter().enumerate() {
+            table.add_row(Self::format_row(item, index));
         }
-        options
+        table.printstd();
+    }
+}
+
+impl TableDisplay<Link> for Links {
+    fn format_headers() -> Row {
+        row![
+            "Index".bold().yellow(),
+            "Alias".bold().yellow(),
+            "Description".bold().yellow()
+        ]
     }
 
-    pub fn store(self) {
-        let mut links = Link::get_links_map();
-        links.insert(self.alias.to_string(), self);
-        let toml_string = to_toml(&links).expect("Couldnt parse links");
-        let linksfile = dirs::home_dir()
-            .expect("Can't find homedir on this fs")
-            .join(".simpl/links.toml");
-        fs::write(linksfile, toml_string).expect("Failed to write config");
+    fn format_row(item: &Link, index: usize) -> Row {
+        row![
+            index.to_string().bold(),
+            item.alias.green().bold(),
+            item.description.green()
+        ]
     }
+}
 
-    pub fn remove(alias: String) {
-        let mut links = Link::get_links_map();
-        links.remove(&alias);
-        let toml_string = to_toml(&links).expect("Couldnt parse links");
-        let linksfile = dirs::home_dir()
-            .expect("Can't find homedir on this fs")
-            .join(".simpl/links.toml");
-        fs::write(linksfile, toml_string).expect("Failed to write config");
-    }
+#[derive(Debug, StructOpt)]
+#[structopt(name = "links")]
+pub enum LinkCommand {
+    /// Add new link from all projects
+    #[structopt(name = "add")]
+    Add,
+    /// Remove an existing link by alias
+    #[structopt(name = "rm")]
+    Remove { alias: String },
+    /// Show the existing links
+    #[structopt(name = "show")]
+    Show,
+}
 
-    pub fn get_by_alias(alias: String) -> Option<Link> {
-        let links = Link::get_links_map();
-        match links.get(&alias) {
-            Some(x) => Some(Link {
-                alias: x.alias.to_string(),
-                project_id: x.project_id.to_string(),
-                service_id: x.service_id.to_string(),
-                hours_id: x.hours_id.to_string(),
-                description: x.description.to_string(),
-            }),
-            None => None,
+impl LinkCommand {
+    pub fn execute(&self) {
+        init_config_env();
+        match self {
+            LinkCommand::Add => {
+                let new_link = Link::from_prompt();
+                let description = &new_link.description.to_owned();
+                let alias = &new_link.alias.to_owned();
+                new_link.save();
+                println!(
+                    "Succesfully added link alias {} for {}",
+                    alias.bold().green(),
+                    description.green()
+                );
+            }
+            LinkCommand::Remove { alias } => {
+                Link::remove(alias.to_string());
+                println!("Succesfully removed link alias {}", alias.green());
+            }
+            LinkCommand::Show => {
+                let links: Links = Link::get_links();
+                Links::print_table(&links);
+            }
         }
     }
 }

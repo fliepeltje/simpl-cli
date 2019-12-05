@@ -1,20 +1,55 @@
-use serde::{Deserialize, Serialize};
-use std::{env, fs};
+use colored::*;
 use dialoguer::{theme::ColorfulTheme, Input};
-use toml::to_string as to_toml;
+use dirs::home_dir;
+use serde::{Deserialize, Serialize};
+use simplicate::Client;
+use std::{env, fs};
+use structopt::StructOpt;
+
+#[derive(Serialize, Deserialize)]
+pub struct SimplicateConfig {
+    pub api_key: String,
+    pub api_secret: String,
+    pub host: String,
+    pub employee_id: String,
+}
+
+pub fn init_simplicate_client() -> Client {
+    Client {
+        api_key: std::env::var("SIMPL_API_KEY").expect("No API key in configuration"),
+        api_secret: std::env::var("SIMPL_API_SECRET").expect("No API secret in configuration"),
+        host: std::env::var("SIMPL_HOST").expect("No host in configuration"),
+    }
+}
+
+pub fn init_config_env() {
+    match UserConfig::from_fs() {
+        Some(cfg) => cfg.set_env(),
+        None => panic!("No user configuration found. Please run the config command".yellow()),
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct UserConfig {
-    pub api_key: String,
-    pub api_secret: String,
-    pub employee_id: String,
-    pub simplicate_host: String,
-    pub project_status_filter: Option<String>,
+    pub simplicate: SimplicateConfig,
 }
 
 impl UserConfig {
-    pub fn set_from_cli() {
-        let config = UserConfig {
+    pub fn from_fs() -> Option<UserConfig> {
+        let simplconf = home_dir()
+            .expect("Can't find homedir on this fs")
+            .join(".simpl/config.toml");
+        match fs::read_to_string(simplconf) {
+            Ok(string) => {
+                let config: UserConfig = toml::from_str(&string.to_string().to_owned()).unwrap();
+                Some(config)
+            }
+            Err(_) => None,
+        }
+    }
+
+    fn from_input() -> UserConfig {
+        let simplicate = SimplicateConfig {
             api_key: Input::with_theme(&ColorfulTheme::default())
                 .with_prompt("Enter your API Key")
                 .default(env::var("SIMPL_API_KEY").unwrap_or(String::from("")))
@@ -30,44 +65,74 @@ impl UserConfig {
                 .default(env::var("SIMPL_EMPLOYEE_ID").unwrap_or(String::from("")))
                 .interact()
                 .unwrap(),
-            simplicate_host: Input::with_theme(&ColorfulTheme::default())
+            host: Input::with_theme(&ColorfulTheme::default())
                 .with_prompt("Enter your simpicate host")
                 .default(env::var("SIMPL_HOST").unwrap_or(String::from("")))
                 .interact()
                 .unwrap(),
-            project_status_filter: None
         };
-        config.store();
-    }
-
-    pub fn fetch() -> Option<UserConfig> {
-        let simplconf = dirs::home_dir()
-            .expect("Can't find homedir on this fs")
-            .join(".simpl/config.toml");
-        match fs::read_to_string(simplconf) {
-            Ok(string) => {
-                let config: UserConfig = toml::from_str(&string.to_string().to_owned()).unwrap();
-                env::set_var("SIMPL_API_KEY", &config.api_key);
-                env::set_var("SIMPL_API_SECRET", &config.api_secret);
-                env::set_var("SIMPL_HOST", &config.simplicate_host);
-                env::set_var("SIMPL_EMPLOYEE_ID", &config.employee_id);
-                match &config.project_status_filter {
-                    Some(x) => env::set_var("SIMPL_PROJECT_STATUS_FILTER", x),
-                    None => ()
-                };
-                Some(config)
-            }
-            Err(_) => None,
+        UserConfig {
+            simplicate: simplicate,
         }
     }
 
-    pub fn store(self) {
+    fn set_env(&self) {
+        env::set_var("SIMPL_API_KEY", &self.simplicate.api_key);
+        env::set_var("SIMPL_API_SECRET", &self.simplicate.api_secret);
+        env::set_var("SIMPL_HOST", &self.simplicate.host);
+        env::set_var("SIMPL_EMPLOYEE_ID", &self.simplicate.employee_id);
+    }
+
+    fn store(&self) {
         let homedir = dirs::home_dir().expect("Can't find homedir on this fs");
         let simpldir = homedir.join(".simpl");
         fs::create_dir_all(simpldir).expect("Failed to create simpl dir");
         let simplconf = homedir.join(".simpl/config.toml");
-        let toml_string = to_toml(&self).expect("Could not encode TOML value");
-        println!("config:\n{}", toml_string);
+        let toml_string = toml::to_string(self).expect("Could not encode TOML value");
         fs::write(simplconf, toml_string).expect("Failed to write config");
+    }
+}
+
+impl std::fmt::Display for UserConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let line_1 = "Simplicate Config".bold().green();
+        let line_2 = format!(
+            "{}: {}",
+            "api key".italic().green(),
+            &self.simplicate.api_key.blue()
+        );
+        let line_3 = format!("{}: {}", "api secret".italic().green(), "hidden".blue());
+        let line_4 = format!(
+            "{}: {}",
+            "host".italic().green(),
+            &self.simplicate.host.blue()
+        );
+        let line_5 = format!(
+            "{}: {}",
+            "employee id".italic().green(),
+            &self.simplicate.employee_id.blue()
+        );
+        write!(
+            f,
+            "{}\n{}\n{}\n{}\n{}",
+            line_1, line_2, line_3, line_4, line_5
+        )
+    }
+}
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "config")]
+pub struct ConfigCommand {}
+
+impl ConfigCommand {
+    pub fn execute(&self) {
+        let current_config = UserConfig::from_fs();
+        match current_config {
+            Some(cfg) => cfg.set_env(),
+            None => println! {"No existing configuration found"},
+        };
+        let new_config = UserConfig::from_input();
+        new_config.store();
+        println!("The new configuration is: \n{}", new_config);
     }
 }
