@@ -1,50 +1,35 @@
-use crate::api::{client_from_env, get_latest_logged_hours};
-use chrono::{Datelike, Local, NaiveDate, Weekday};
+use crate::config::{init_config_env, init_simplicate_client};
+use chrono::{Datelike, NaiveDate, Utc, Weekday};
 use colored::*;
-use simplicate::hours::Hours;
+use simplicate::structures::Hours;
+use simplicate::QueryMany;
+use std::env;
+use structopt::StructOpt;
 
-#[derive(Clone)]
-pub struct LoggedHour {
-    pub description: String,
-    pub time: f64,
-    pub updated_at: String,
-}
+#[derive(Debug, StructOpt)]
+#[structopt(name = "show")]
+pub struct ShowCommand {}
 
-pub struct HoursLog {
-    pub hours: Vec<Hours>,
-}
-
-impl HoursLog {
-    pub fn show_current_week(employee_id: String) {
-        let current_dt: NaiveDate = Local::today().naive_local();
+impl ShowCommand {
+    pub fn execute(&self) {
+        init_config_env();
+        let cli = init_simplicate_client();
+        let current_dt: NaiveDate = Utc::today().naive_local();
         let y = &current_dt.iso_week().year();
         let w = &current_dt.iso_week().week();
         let start_date = NaiveDate::from_isoywd(*y, *w, Weekday::Mon);
         let end_date = NaiveDate::from_isoywd(*y, *w, Weekday::Sat);
-        let cli = client_from_env();
-        let log = HoursLog {
-            hours: cli.get_employee_hours_for_daterange(
-                employee_id,
-                Some(start_date.to_string()),
-                Some(end_date.to_string()),
+        let params = vec![
+            (
+                String::from("q[employee.id]"),
+                env::var("SIMPL_EMPLOYEE_ID")
+                    .expect("No employee ID set")
+                    .to_string(),
             ),
-        };
-        log.print();
-    }
-
-    pub fn show_latest(employee_id: String) {
-        let hours = get_latest_logged_hours(employee_id);
-        match hours {
-            Some(h) => {
-                let log = HoursLog { hours: vec![h] };
-                log.print()
-            }
-            None => println!("No latest hours for today"),
-        };
-    }
-
-    pub fn print(self) {
-        let mut hours = self.hours;
+            (String::from("q[start_date][ge]"), start_date.to_string()),
+            (String::from("q[start_date][le]"), end_date.to_string()),
+        ];
+        let mut hours: Vec<Hours> = Hours::fetch_many(cli, Some(params)).expect("No hours found");
         hours.sort_by(|a, b| a.start_date.cmp(&b.start_date));
         let mut header = "unknown".to_string();
         let mut total: Vec<f64> = vec![];
@@ -70,18 +55,34 @@ impl HoursLog {
                 }
                 None => (),
             };
-            let lh = LoggedHour {
-                description: match h.project {
-                    Some(proj) => {
-                        let name = proj.name.unwrap_or("Unnamed project".to_string());
-                        let note = h.note.unwrap_or("".to_string());
-                        match note == String::from("") {
-                            false => format!("{}: {}", name.bright_red(), note.yellow()),
-                            true => format!("{}", name.bright_red()),
-                        }
+            let proj_name = match h.project {
+                Some(p) => p.name.unwrap_or("Unnamed project".to_string()),
+                None => "Unnamed project".to_string(),
+            };
+            let serv_name = match h.projectservice {
+                Some(s) => {
+                    format!(" / {}", s.name.unwrap_or("Unnamed Service".to_string())).to_string()
+                }
+                None => String::from(""),
+            };
+            let note = match h.note {
+                Some(n) => {
+                    if n == String::from("") {
+                        n
+                    } else {
+                        format!(": {}", n).to_string()
                     }
-                    None => "Unknown project".to_string(),
-                },
+                }
+                None => String::from(""),
+            };
+            let lh = LoggedHour {
+                description: format!(
+                    "{}{}{}",
+                    proj_name.bright_red(),
+                    serv_name.red(),
+                    note.yellow()
+                )
+                .to_string(),
                 time: h.hours,
                 updated_at: match h.start_date {
                     Some(s) => {
@@ -113,4 +114,11 @@ impl HoursLog {
             );
         };
     }
+}
+
+#[derive(Clone)]
+pub struct LoggedHour {
+    pub description: String,
+    pub time: f64,
+    pub updated_at: String,
 }
