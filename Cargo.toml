@@ -1,22 +1,18 @@
 [package]
 name = "simpl"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["don <d.rasiukevicius@labdigital.nl>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = "2.33.0"
-reqwest = "0.9.20"
-serde = "1.0.101"
-git2 = "0.10.1"
-chrono = "0.4.9"
-colored = "1.8.0"
-dialoguer = "0.4.0"
+structopt = "0.3.3"
+toml = "0.5.4"
+serde = { version = "1.0.102", features = ["derive"] }
 dirs = "2.0.2"
-toml = "0.5.3"
-cute = "0.3.0"
-chrono-tz = "0.5.1"
+dialoguer = "0.4.0"
+colored = "1.8.0"
 simplicate = { git = "https://github.com/fliepeltje/simplicate-rs" }
 prettytable-rs = "0.8.0"
+chrono = "0.4.9"
