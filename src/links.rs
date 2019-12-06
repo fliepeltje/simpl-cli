@@ -10,6 +10,11 @@ use std::fs;
 use structopt::StructOpt;
 use toml;
 
+enum Filter {
+    Active,
+    All,
+}
+
 trait Promptable<T: QueryMany<T>> {
     const PROMPT_TEXT: &'static str;
     fn format_row(item: &T, index: usize) -> Row;
@@ -23,7 +28,7 @@ trait Promptable<T: QueryMany<T>> {
         items
     }
 
-    fn filter(items: Vec<T>) -> Vec<T> {
+    fn filter(items: Vec<T>, filter: Filter) -> Vec<T> {
         items
     }
 
@@ -67,10 +72,13 @@ trait Promptable<T: QueryMany<T>> {
         table.printstd();
     }
 
-    fn prompt() -> T {
+    fn prompt(filter: Option<Filter>) -> T {
         let items = Self::retrieve(None);
         let items = Self::sort(items);
-        let items = Self::filter(items);
+        let items = match filter {
+            Some(f) => Self::filter(items, f),
+            None => items,
+        };
         Self::print_options(&items);
         let selection: usize = Input::with_theme(&ColorfulTheme::default())
             .with_prompt(Self::PROMPT_TEXT)
@@ -94,6 +102,19 @@ impl Promptable<Project> for Link {
             )
         });
         items
+    }
+
+    fn filter(items: Vec<Project>, filter: Filter) -> Vec<Project> {
+        match filter {
+            Filter::All => items,
+            Filter::Active => items
+                .into_iter()
+                .filter(|proj| match &proj.project_status {
+                    Some(status) => status.label == "tab_pactive",
+                    None => false,
+                })
+                .collect(),
+        }
     }
 
     fn format_headers() -> Row {
@@ -120,10 +141,18 @@ impl Promptable<Project> for Link {
             Some(date) => date.to_string(),
             None => "Unknown".to_string(),
         };
+        let org_name = match &item.organization {
+            Some(o) => {
+                let name = o.name.as_ref().unwrap();
+                name.to_owned()
+            }
+            None => "".to_string(),
+        };
+        let project_name = format!("{} ({})", item.name.to_string(), org_name);
         match active {
             true => row![
                 index.to_string().bold(),
-                item.name.green(),
+                project_name.green(),
                 start_date.green().italic(),
                 end_date.green().italic(),
                 status.green().italic()
@@ -246,11 +275,14 @@ impl Link {
         fs::write(linksfile, toml_string).expect("Failed to write config");
     }
 
-    fn from_prompt() -> Link {
-        let project: Project = Self::prompt();
+    fn from_prompt(show_all_projects: bool) -> Link {
+        let project: Project = match show_all_projects {
+            true => Self::prompt(Some(Filter::All)),
+            false => Self::prompt(Some(Filter::Active)),
+        };
         std::env::set_var("PROJECT_ID", &project.id);
-        let service: Service = Self::prompt();
-        let hourtype: HourType = Self::prompt();
+        let service: Service = Self::prompt(None);
+        let hourtype: HourType = Self::prompt(None);
         let description = format!(
             "{} for {} - {}",
             &hourtype.label,
@@ -351,7 +383,10 @@ impl TableDisplay<Link> for Links {
 pub enum LinkCommand {
     /// Add new link from all projects
     #[structopt(name = "add")]
-    Add,
+    Add {
+        #[structopt(short = "a")]
+        show_all: bool,
+    },
     /// Remove an existing link by alias
     #[structopt(name = "rm")]
     Remove { alias: String },
@@ -364,8 +399,8 @@ impl LinkCommand {
     pub fn execute(&self) {
         init_config_env();
         match self {
-            LinkCommand::Add => {
-                let new_link = Link::from_prompt();
+            LinkCommand::Add { show_all } => {
+                let new_link = Link::from_prompt(*show_all);
                 let description = &new_link.description.to_owned();
                 let alias = &new_link.alias.to_owned();
                 new_link.save();
