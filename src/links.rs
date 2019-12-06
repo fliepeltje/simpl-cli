@@ -141,10 +141,18 @@ impl Promptable<Project> for Link {
             Some(date) => date.to_string(),
             None => "Unknown".to_string(),
         };
+        let org_name = match &item.organization {
+            Some(o) => {
+                let name = o.name.as_ref().unwrap();
+                name.to_owned()
+            }
+            None => "".to_string(),
+        };
+        let project_name = format!("{} ({})", item.name.to_string(), org_name);
         match active {
             true => row![
                 index.to_string().bold(),
-                item.name.green(),
+                project_name.green(),
                 start_date.green().italic(),
                 end_date.green().italic(),
                 status.green().italic()
