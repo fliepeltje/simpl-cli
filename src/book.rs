@@ -3,6 +3,7 @@ use crate::links::Link;
 use chrono::offset::Utc;
 use colored::*;
 use serde::Deserialize;
+use serde_json::{to_string_pretty, Value};
 use simplicate::structures::NewHours;
 use simplicate::Post;
 use std::env;
@@ -25,7 +26,7 @@ pub struct BookCommand {
 
 #[derive(Deserialize)]
 struct Response {
-    errors: Option<Vec<String>>,
+    errors: Option<Value>,
 }
 
 impl BookCommand {
@@ -62,7 +63,7 @@ impl BookCommand {
             Some(err) => println!(
                 "{}\n\nError Response:\n{}",
                 "Failed to book hours due to a configuration error for the given alias, verify that the project is valid".red(),
-                format!("{:#?}", err).red().bold()
+                format!("{}", to_string_pretty(&err).unwrap_or(String::from("No response"))).yellow().bold()
             ),
         };
     }
