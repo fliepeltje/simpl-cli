@@ -59,7 +59,11 @@ impl BookCommand {
                     .yellow()
                     .italic()
             ),
-            Some(_) => println!("{}","Failed to book hours due to a configuration error for the given alias, verify that the project is valid".red()),
+            Some(err) => println!(
+                "{}\n\nError Response:\n{}",
+                "Failed to book hours due to a configuration error for the given alias, verify that the project is valid".red(),
+                format!("{:#?}", err).red().bold()
+            ),
         };
     }
 
