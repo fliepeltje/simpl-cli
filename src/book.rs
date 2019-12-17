@@ -1,6 +1,7 @@
 use crate::config::{init_config_env, init_simplicate_client};
 use crate::links::Link;
 use chrono::offset::Utc;
+use chrono::NaiveDate;
 use colored::*;
 use serde::Deserialize;
 use serde_json::{to_string_pretty, Value};
@@ -22,6 +23,9 @@ pub struct BookCommand {
     /// Additional context (e.g. 'took longer due to Amazon issues')
     #[structopt(short = "m")]
     pub context: Option<String>,
+    /// Specify a date for which you want to book (YYYY-MM-DD)
+    #[structopt(short = "d")]
+    pub date: Option<NaiveDate>,
 }
 
 #[derive(Deserialize)]
@@ -39,7 +43,10 @@ impl BookCommand {
             projectservice_id: link.service,
             employee_id: env::var("SIMPL_EMPLOYEE_ID").expect("No employee ID is set"),
             type_id: link.hourtype,
-            start_date: Utc::now().naive_utc(),
+            start_date: match self.date {
+                Some(dt) => dt.and_hms(0, 0, 0),
+                None => Utc::now().naive_utc(),
+            },
             note: Some(self.format_note()),
         };
         let cli = init_simplicate_client();
