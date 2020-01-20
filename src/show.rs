@@ -83,7 +83,7 @@ impl ShowCommand {
                     note.yellow()
                 )
                 .to_string(),
-                time: h.hours,
+                time: ((h.hours * 100.0).round()) / 100.0,
                 updated_at: match h.start_date {
                     Some(s) => {
                         let mut elements = s.split(" ");
