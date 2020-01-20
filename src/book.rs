@@ -68,9 +68,10 @@ impl BookCommand {
                     .italic()
             ),
             Some(err) => println!(
-                "{}\n\nError Response:\n{}",
+                "{}\n\nError Response:\n{}\n\n{}\n\n",
                 "Failed to book hours due to a configuration error for the given alias, verify that the project is valid".red(),
-                format!("{}", to_string_pretty(&err).unwrap_or(String::from("No response"))).yellow().bold()
+                format!("{}", to_string_pretty(&err).unwrap_or(String::from("No response"))).yellow().bold(),
+                "NOTE: If the error involves start/end dates of a project/service, this is caused by the configuration of the write_hours fields in simplicate.\nEnsure that either both fields for write_hours are filled, or both fields are empty.".italic().red()
             ),
         };
     }
