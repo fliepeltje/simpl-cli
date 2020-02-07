@@ -98,7 +98,11 @@ impl Promptable<Project> for Link {
                     Some(x) => x.label.to_string(),
                     None => "Unknown".to_string(),
                 },
-                x.name.to_string(),
+                match &x.organization {
+                    Some(org) => org.name.as_ref().unwrap_or(&"Unknown".to_string()).to_string().to_uppercase(),
+                    None => "".to_string()
+                },
+                x.name.to_string().to_uppercase(),
             )
         });
         items
@@ -146,9 +150,9 @@ impl Promptable<Project> for Link {
                 let name = o.name.as_ref().unwrap();
                 name.to_owned()
             }
-            None => "".to_string(),
+            None => "Unnamed Project".to_string(),
         };
-        let project_name = format!("{} ({})", item.name.to_string(), org_name);
+        let project_name = format!("{} {}", org_name.to_uppercase().bold(), item.name.to_string());
         match active {
             true => row![
                 index.to_string().bold(),
