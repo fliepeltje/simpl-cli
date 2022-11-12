@@ -11,11 +11,11 @@ employee_id = "{simplicate employee id}"
 3. Book hours with `simpl book <project name> <time in hours>` optionally you can provide the following arguments: 
  - `-t` to add one or more  jira tickets (`-t LAB-001 LAB-002`)
  - `-m` for additonal context (`-m "ticket took 2 hours longer than planned"`) 
- - `-d` to specify a date for which to book; by default you book for today (`-d "2019-01-01"`)
+ - `-d` to specify a datetime on which to book; by default you book on current utc time. (`-d "2019-01-01T14:05:05"`)
 
  So a command with all options would look something like:
  
- `simpl book myalias 0.5 -t LAB-001 -m "took longer due to dependency updates" -d "2019-11-11"`
+ `simpl book myalias 0.5 -t LAB-001 -m "took longer due to dependency updates" -d "2019-11-11T09:15:55"`
 
 Run `simpl --help` to see more detailed commands.
 
