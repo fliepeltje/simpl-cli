@@ -5,10 +5,21 @@ use simplicate::structures::Hours;
 use simplicate::QueryMany;
 use std::env;
 use structopt::StructOpt;
+use chrono::NaiveDateTime;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "show")]
-pub struct ShowCommand {}
+pub struct ShowCommand {
+    /// Specify a start date time from when you want to view the hours (YYYY-MM-DDTHH-MM:SS)
+    /// defaults to last monday
+    #[structopt(short = "s")]
+    pub start_time: Option<NaiveDateTime>,
+
+    /// Specify a end date time till when you want to view the hours (YYYY-MM-DDTHH-MM:SS)
+    /// defaults to next saturday
+    #[structopt(short = "e")]
+    pub end_time: Option<NaiveDateTime>,
+}
 
 impl ShowCommand {
     pub fn execute(&self) {
@@ -17,8 +28,14 @@ impl ShowCommand {
         let current_dt: NaiveDate = Utc::today().naive_local();
         let y = &current_dt.iso_week().year();
         let w = &current_dt.iso_week().week();
-        let start_date = NaiveDate::from_isoywd(*y, *w, Weekday::Mon);
-        let end_date = NaiveDate::from_isoywd(*y, *w, Weekday::Sat);
+        let start_date = match self.start_time {
+            Some(dt) => dt,
+            None => NaiveDate::from_isoywd(*y, *w, Weekday::Mon).and_hms(0, 0, 0),
+        };
+        let end_date = match self.end_time {
+            Some(dt) => dt,
+            None => NaiveDate::from_isoywd(*y, *w, Weekday::Sat).and_hms(23, 59, 59),
+        };
         let params = vec![
             (
                 String::from("q[employee.id]"),
